@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>Do PCAP Features Help?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,650&family=Public+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with full-width scrollable evidence tables; badges encode evidence type */
+:root{
+  --bg:#f6f7f5; --surface:#ffffff; --fg:#1d2422; --muted:#5b6662; --line:#d9dfdc;
+  --accent:#0f6b5c; --accent-soft:#e1efeb;
+  --measured:#0f6b5c; --measured-bg:#e1efeb;
+  --lit:#3b4fa0; --lit-bg:#e6e9f6;
+  --hyp:#9a5b00; --hyp-bg:#fbefd9;
+  --risk:#a3332b; --risk-bg:#f8e3e0;
+  --high:#0f6b5c; --med:#9a5b00; --low:#6b6f73;
+  --display:"Newsreader", Georgia, "Times New Roman", serif;
+  --body:"Public Sans", "Segoe UI", Arial, sans-serif;
+  --mono:"JetBrains Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1b2220; --fg:#e4ebe8; --muted:#9fb0aa; --line:#2e3935;
+  --accent:#5cc2ad; --accent-soft:#1f3a34;
+  --measured:#5cc2ad; --measured-bg:#1f3a34; --lit:#9fb0f0; --lit-bg:#252c4a;
+  --hyp:#f0b45a; --hyp-bg:#3d2e14; --risk:#f08a80; --risk-bg:#40211e;
+  --high:#5cc2ad; --med:#f0b45a; --low:#9aa0a5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1b2220; --fg:#e4ebe8; --muted:#9fb0aa; --line:#2e3935;
+  --accent:#5cc2ad; --accent-soft:#1f3a34;
+  --measured:#5cc2ad; --measured-bg:#1f3a34; --lit:#9fb0f0; --lit-bg:#252c4a;
+  --hyp:#f0b45a; --hyp-bg:#3d2e14; --risk:#f08a80; --risk-bg:#40211e;
+  --high:#5cc2ad; --med:#f0b45a; --low:#9aa0a5; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:40px}
+.prose{max-width:72ch}
+h1,h2,h3{font-family:var(--display);font-weight:650;line-height:1.2;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,4.5vw,2.9rem)}
+h2{font-size:1.6rem;margin-bottom:12px}
+h3{font-size:1.15rem;margin:18px 0 6px}
+p{margin:0 0 12px}
+.eyebrow{font:600 .75rem/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+.lede{font-size:1.1rem;color:var(--muted);max-width:68ch}
+section{display:grid;gap:8px;min-width:0}
+.answer{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:6px;padding:20px 22px}
+.answer p:last-child{margin:0}
+.verdicts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:8px}
+.verdict{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px;display:grid;gap:6px;align-content:start;min-width:0}
+.verdict .name{font-weight:700}
+.gain{font:600 .78rem/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:5px 8px;border-radius:4px;justify-self:start}
+.gain.high{color:var(--high);background:var(--measured-bg)}
+.gain.med{color:var(--med);background:var(--hyp-bg)}
+.gain.low{color:var(--low);background:var(--line)}
+.verdict p{margin:0;font-size:.94rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:.88rem;color:var(--muted);align-items:center}
+.b{display:inline-block;font:600 .7rem/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:4px 6px;border-radius:3px;white-space:nowrap;vertical-align:1px}
+.b.m{color:var(--measured);background:var(--measured-bg)}
+.b.l{color:var(--lit);background:var(--lit-bg)}
+.b.h{color:var(--hyp);background:var(--hyp-bg)}
+.b.r{color:var(--risk);background:var(--risk-bg)}
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:.92rem}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+th{font:600 .74rem/1.3 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.cls{font-weight:600;white-space:nowrap}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+code{font:.88em var(--mono);background:var(--accent-soft);padding:1px 5px;border-radius:3px}
+ol.steps{margin:0;padding-left:1.4em;display:grid;gap:10px;max-width:78ch}
+ol.steps li::marker{font-family:var(--mono);color:var(--accent);font-weight:600}
+ul{margin:0 0 12px;padding-left:1.2em}
+li{margin-bottom:4px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.fact{border-top:2px solid var(--measured);padding-top:10px;min-width:0}
+.fact .v{font:600 1.5rem/1.2 var(--mono);font-variant-numeric:tabular-nums}
+.fact p{margin:4px 0 0;font-size:.9rem;color:var(--muted)}
+.refs{font-size:.9rem;color:var(--muted);display:grid;gap:6px;max-width:90ch}
+.refs a{color:var(--lit)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+footer{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+</style>
+
+<div class="wrap">
+
+<header class="prose">
+  <div class="eyebrow">ForenXAI · Thesis 2 · Feature research</div>
+  <h1>Do PCAP features help on our three datasets?</h1>
+  <p class="lede">A guide for checking whether packet features extracted from the PCAP/PCAPng files and attached to the CICFlowMeter v4 CSV improve detection on ASEADOS-SDN-IoT, CyberFlowIoT-GICAP and TII-SSRC-23. It extends <em>Thesis 2 – RESEARCH.pdf</em> (Q3: what new features can we add).</p>
+  <p class="lede"><strong>Study design:</strong> the raw PCAP/PCAPng files of the three datasets in <code>01_raw_datasets</code> → CICFlowMeter v4 CSV → PCAP-derived columns attached with <code>pcap_flow_enricher.py</code>. The Thesis 1 data (TRUSTLab, CSE-CIC-IDS2018) and the CSVs published with each dataset are not used as model input. <strong>Every added column is computed directly from the packets in the PCAP/PCAPng with Scapy; no NetFlow, nProbe or NFStream exporter is used.</strong></p>
+</header>
+
+<section>
+  <div class="answer prose">
+    <h2>Short answer</h2>
+    <p><strong>They should help on specific attack classes, not on every class, and only an ablation test can prove it.</strong> The gain depends on what CICFlowMeter v4 misses in each dataset. Where the attack lives in traffic that v4 drops or summarises away (ARP, DNS content, payload, packet order, activity across flows), the added columns carry new information. Where v4's flag counts and rates already separate the classes, expect little or no gain.</p>
+    <p>Every claim below is tagged with the kind of basis behind it:</p>
+    <div class="legend">
+      <span><span class="b m">Measured</span> from our own runs on the samples</span>
+      <span><span class="b l">Literature</span> reported in a cited study</span>
+      <span><span class="b h">Hypothesis</span> to be tested by the ablation</span>
+      <span><span class="b r">Risk</span> could make a gain fake</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Expected gain per dataset</h2>
+  <div class="verdicts">
+    <div class="verdict">
+      <span class="gain high">Expected gain: high</span>
+      <span class="name">CyberFlowIoT-GICAP</span>
+      <p>Several classes live where v4 is blind: ARP spoofing (non-IP), DNS beaconing (DNS fields and timing), SQL and MQTT injection (payload content), Nmap (many ports across flows).</p>
+    </div>
+    <div class="verdict">
+      <span class="gain med">Expected gain: medium</span>
+      <span class="name">ASEADOS-SDN-IoT</span>
+      <p>Slow DoS vs HULK and probe vs DDoS can use TCP window, packet order and window counts. But 45% of the sample's IP packets are IPv6, which v4 ignores, and labels are per capture file.</p>
+    </div>
+    <div class="verdict">
+      <span class="gain low">Expected gain: low to medium</span>
+      <span class="name">TII-SSRC-23</span>
+      <p>Most of its 12 DoS subtypes are defined by one TCP flag, which v4 already counts. Gains are likely only for ECN DoS, MAC DoS, brute-force subtypes and Mirai variants.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What CICFlowMeter v4 cannot see</h2>
+  <p class="prose">These gaps are the reason any PCAP feature could help. The numbers come from running v4 and the enricher (<code>pcap_flow_enricher.py</code>) on one sample PCAP per dataset.</p>
+  <div class="facts">
+    <div class="fact"><div class="v">835 / 1,867</div><p><span class="b m">Measured</span> IP packets in the ASEADOS sample that are IPv6. v4 builds flows from IPv4 only, so they never reach the CSV.</p></div>
+    <div class="fact"><div class="v">845 / 1,886</div><p><span class="b m">Measured</span> packets v4 discarded in the same sample (IPv6 plus non-IP such as ARP).</p></div>
+    <div class="fact"><div class="v">54</div><p><span class="b m">Measured</span> ARP packets in the CyberFlow Nmap sample. ARP never becomes a flow row.</p></div>
+    <div class="fact"><div class="v">76 stats</div><p><span class="b m">Measured</span> v4 keeps only per-flow summaries: no payload bytes, no packet order, no TTL, no DNS fields, no link to other flows.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Class-by-class assessment</h2>
+  <p class="prose">For each attack class in the datasets: which PCAP-derived columns should contribute, and the basis. "None expected" means v4's existing columns already describe the attack.</p>
+  <p class="prose"><strong>Where the columns come from:</strong> every column in the "PCAP columns" tables is computed by <code>pcap_flow_enricher.py</code> from the packets in the raw PCAP/PCAPng (TTL, TCP window and options, DNS, ICMP, payload bytes, packet order, ARP). The only exception is marked <strong>†</strong>: the window columns (<code>win2s_*</code>, <code>win60s_*</code>) are computed from the v4 CSV's Src IP, Dst Port and Timestamp, which CICFlowMeter itself took from the same PCAP. None of these columns exist in the CICFlowMeter v4 output.</p>
+
+  <h3>CyberFlowIoT-GICAP</h3>
+  <div class="tablebox"><table>
+    <thead><tr><th>Class</th><th>PCAP columns that matter</th><th>Why</th><th>Basis</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">ARP_SPOOFING_MITM</td><td><code>arp_reply_count</code>, <code>arp_gratuitous_count</code>, <code>arp_mac_distinct</code></td><td>The attack is ARP replies that bind a victim IP to the attacker MAC. v4 drops ARP, so its columns only see the relayed IP traffic.</td><td><span class="b m">Measured</span> ARP dropped · <span class="b l">Literature</span> ARP-PROBE; Rahman et al.</td></tr>
+      <tr><td class="cls">DNS_Beacon</td><td><code>dns_query_count</code>, <code>dns_qname_entropy_mean</code>, <code>win60s_src_flows</code>†</td><td>Beacons repeat DNS queries at regular intervals, often to odd names. v4 sees only small UDP flows.</td><td><span class="b l">Literature</span> Sarhan et al. (DNS fields informative) · <span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">SQL_Injection, MQTT_Injection</td><td><code>payload_printable_ratio</code>, <code>payload_entropy</code>, <code>payload_longest_run</code></td><td>The attack is in the content (SQL strings, crafted MQTT messages). v4 sees only sizes.</td><td><span class="b l">Literature</span> Kiflay et al. (payload bytes) · <span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">Nmap_Recon</td><td><code>win60s_src_dstports</code>†, <code>pcap_mss</code>, <code>pcap_win_mean</code></td><td>A scan is one source touching many ports. Each flow alone looks tiny and harmless.</td><td><span class="b m">Measured</span> up to 1,000 ports per source in 60 s · <span class="b l">Literature</span> KDD Cup 99 count features; Kitsune</td></tr>
+      <tr><td class="cls">FuerzaBruta (brute force)</td><td><code>win60s_src_flows</code>†, <code>pcap_first10_size_*</code></td><td>Many short login flows from one source with a fixed size pattern.</td><td><span class="b l">Literature</span> Luay et al. (temporal features) · <span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">ICMP / SYN / MQTT flood</td><td><code>win2s_src_flows</code>†; <code>pcap_icmp_echo_req</code></td><td>v4 rates and flag counts already describe floods well; window counts may add a little.</td><td><span class="b h">Hypothesis</span> small gain</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>ASEADOS-SDN-IoT</h3>
+  <div class="tablebox"><table>
+    <thead><tr><th>Class</th><th>PCAP columns that matter</th><th>Why</th><th>Basis</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">dos / slow (Slowloris)</td><td><code>pcap_win_min</code>, <code>pcap_zero_win_count</code>, <code>pcap_first10_size_*</code></td><td>Slow attacks keep connections open with tiny, spaced packets; the size sequence and window behaviour differ from HULK floods. Your manuscript reports Slowloris vs DoS as the weakest pair (41–44% confusion).</td><td><span class="b l">Literature</span> Lipcsey-Magyar et al.; Alitbi et al. (first packets) · <span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">dos / hulk, torsh</td><td><code>payload_printable_ratio</code>, <code>win2s_src_flows</code>†</td><td>HTTP floods carry readable requests at high rate.</td><td><span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">prob (probe)</td><td><code>win60s_src_dstports</code>†, <code>pcap_ttl_*</code></td><td>Probing touches many ports and hosts; crafted probes often use unusual TTLs.</td><td><span class="b l">Literature</span> KDD Cup 99; Sarhan et al. (TTL) · <span class="b r">Risk</span> TTL artifact</td></tr>
+      <tr><td class="cls">ddos, bot</td><td><code>win2s_src_flows</code>†, <code>win60s_src_flows</code>†</td><td>Behaviour spread over many flows and sources; bots also beacon periodically.</td><td><span class="b l">Literature</span> Luay et al.; Kitsune</td></tr>
+      <tr><td class="cls">IPv6 traffic</td><td>None possible</td><td>v4 never creates flows for IPv6, so there is no row to attach features to.</td><td><span class="b m">Measured</span> 835 IPv6 packets unmatched</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>TII-SSRC-23</h3>
+  <div class="tablebox"><table>
+    <thead><tr><th>Class</th><th>PCAP columns that matter</th><th>Why</th><th>Basis</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">dos: ack, cwr, fin, psh, rst, syn, urg</td><td>None expected</td><td>Each subtype is defined by one TCP flag, and v4 already counts all eight flags. Expect a ceiling effect.</td><td><span class="b h">Hypothesis</span> check baseline per-class F1 first</td></tr>
+      <tr><td class="cls">dos: ecn</td><td><code>pcap_ecn_ce_count</code></td><td>ECN marks are in the IP header, which v4 does not keep (it has CWR/ECE flag counts only).</td><td><span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">dos: mac</td><td>Only link-layer features (not in the CSV)</td><td>A MAC flood is not IP traffic, so v4 creates few or no rows for it.</td><td><span class="b m">Measured</span> v4 drops non-IP · <span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">bruteforce: dns, ftp, http, ssh, telnet</td><td><code>dns_*</code>, <code>win60s_src_flows</code>†, <code>pcap_first10_size_*</code></td><td>Subtypes differ by protocol content and attempt rate. DNS brute force shows many queries with higher name entropy.</td><td><span class="b m">Measured</span> median 4,545 flows per source in 60 s; name entropy 3.85 · <span class="b l">Literature</span> Sarhan et al. (DNS, FTP return code)</td></tr>
+      <tr><td class="cls">information gathering</td><td><code>win60s_src_dstports</code>†</td><td>Scanning across ports, as with Nmap.</td><td><span class="b l">Literature</span> KDD Cup 99; Kitsune</td></tr>
+      <tr><td class="cls">mirai: ddos variants, scan_bruteforce</td><td><code>win*_src_*</code>†, <code>pcap_ttl_*</code>, <code>pcap_mss</code></td><td>Bot traffic is machine-regular and comes from a fixed tool stack.</td><td><span class="b h">Hypothesis</span> · <span class="b r">Risk</span> TTL artifact</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Risks that can produce a fake gain, and the solution for each</h2>
+  <p class="prose">A "gain" only counts if it survives these checks. Each solution is a concrete step you can put in the methodology chapter.</p>
+  <div class="tablebox"><table>
+    <thead><tr><th>Risk</th><th>How it fakes a gain</th><th>Solution (what to do)</th><th>Basis</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">Random row split</td><td>Window features (<code>win*</code>) are computed from neighbouring flows. With a random split, flows from the same attack burst land in both train and test, so the model is tested on near-copies.</td><td><strong>Split by capture file.</strong> Use grouped cross-validation with the PCAP file name as the group (scikit-learn <code>GroupKFold</code> / <code>StratifiedGroupKFold</code>), so no capture appears in both train and test. Compute window features inside each capture only (the enricher already does this per PCAP). Where a class has only one capture, split it by time (first 70% of flows train, last 30% test).</td><td><span class="b l">Literature</span> Arp et al. 2022 (data snooping)</td></tr>
+      <tr><td class="cls">TTL artifact</td><td>Each attack was run from one lab machine, so its TTL (64, 128, 255 minus hops) can identify the machine instead of the attack.</td><td><strong>Run every experiment twice: with and without <code>pcap_ttl_*</code>.</strong> Before training, tabulate TTL per class; if a class has one TTL value that no other class uses, treat TTL as an artifact and keep only the "without" result. Optional: replace raw TTL with estimated hop count (nearest of 64/128/255 minus observed TTL), which describes the path, not the operating system.</td><td><span class="b l">Literature</span> Sarhan et al. (arXiv 2108.12732)</td></tr>
+      <tr><td class="cls">File-level labels</td><td>Every flow in an attack capture gets the attack label, including background traffic (mDNS, DHCP, NTP). The model then learns "background protocol = attack".</td><td><strong>Relabel by attacker and time window.</strong> In an attack capture, label a flow as the attack only if it involves the attacker IP and falls inside the attack window (CyberFlow: <code>Pcap_Attack_Map.csv</code> windows, <code>ATK_Metadata</code>); label the rest benign. Where the attacker IP is unknown, at least move known background protocols (mDNS 5353, SSDP 1900, DHCP 67/68, NTP 123) to benign. Report how many labels changed.</td><td><span class="b m">Measured</span> mDNS flows labelled "Dos" in the ASEADOS sample · <span class="b m">Verified</span> TII authors removed background traffic from malicious PCAPs; CyberFlow labels use markers + attacker IP (dataset papers)</td></tr>
+      <tr><td class="cls">Ceiling effect</td><td>If the baseline is already ~99%, a tiny rise in accuracy looks like success but is noise.</td><td><strong>Judge on macro-F1 and per-class F1, with a confusion matrix.</strong> State in advance which classes each feature group targets (tables above) and check those classes. A gain must exceed the standard deviation across folds.</td><td><span class="b h">Hypothesis</span> likely for TII flag DoS</td></tr>
+      <tr><td class="cls">Encrypted payload</td><td>Encrypted bytes look random (entropy near 8), so payload columns can separate "encrypted vs plaintext" instead of "attack vs benign".</td><td><strong>Add the payload group separately in the ablation</strong> and read it only for plaintext classes (SQL/MQTT injection, HTTP floods, brute force). Keep −1 for flows without payload; do not impute.</td><td><span class="b l">Literature</span> Kenyon et al. 2024</td></tr>
+      <tr><td class="cls">Leaking identifiers</td><td>IPs, Src Port, Flow ID and Timestamp let the model memorise hosts and times of the lab.</td><td><strong>Use them only to compute the window and ARP features, then drop them</strong> before training. Test Dst Port with and without, since your manuscript keeps it and it ranks high in SHAP.</td><td><span class="b l">Literature</span> Arp et al. 2022</td></tr>
+      <tr><td class="cls">Different extractors</td><td>The CSVs published with the datasets come from different tools (ASEADOS: CICFlowMeter v3; CyberFlow: NFStream). Mixing them makes the same feature mean different things per dataset.</td><td><strong>Ignore the published CSVs and generate every CSV from the raw PCAPs with v4</strong>, so all three datasets go through the same extractor and the same enricher.</td><td><span class="b m">Measured</span> v3 vs v4 flow counts differ (1,971 vs 1,624 on the same PCAP)</td></tr>
+      <tr><td class="cls">Wrong packet-to-flow match</td><td>If packets land in the wrong flow, the new columns describe other traffic.</td><td><strong>Validate each file:</strong> packets attached per flow must equal CICFlowMeter's own count. Reject a file below 95% match.</td><td><span class="b m">Measured</span> samples: TII 100%, CyberFlow 99.9%</td></tr>
+      <tr><td class="cls">Lucky run</td><td>One train/test split can favour the new features by chance.</td><td><strong>5 capture-grouped folds × 3 seeds</strong>, report mean ± standard deviation, and a paired Wilcoxon test on per-fold macro-F1 (baseline vs enriched).</td><td>Standard practice</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Review of Thesis 2 – RESEARCH.pdf</h2>
+  <div class="answer prose">
+    <p><strong>Verdict: passable as a draft, with revisions required before it goes into the manuscript.</strong> The reasoning and structure are sound, the 66-feature list is internally consistent, and the four proposed features are well motivated. It was written for the Thesis 1 setup (TRUSTLab, CSE-CIC-IDS2018 and the published TII-SSRC-23 CSV), so several statements no longer hold for the new idea: CSVs generated with CICFlowMeter v4 from the raw PCAPs of ASEADOS-SDN-IoT, CyberFlowIoT-GICAP and TII-SSRC-23 in <code>01_raw_datasets</code>.</p>
+  </div>
+
+  <h3>What holds</h3>
+  <div class="tablebox"><table>
+    <thead><tr><th>Section</th><th>Claim</th><th>Check</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">Q1 / Q2</td><td>84 → 66 features: 6 identifiers/label, 4 missing in TRUSTLab, 8 Active/Idle empty in TRUSTLab</td><td><span class="b m">Measured</span> The arithmetic is right: the 66 names in the Q2 table are exactly the 84 v4 columns minus those 18 (26 + 16 + 12 + 6 + 4 + 2 = 66).</td></tr>
+      <tr><td class="cls">Q1</td><td>The flow table lacks payload, ARP, TTL, protocol fields and packet order</td><td><span class="b m">Measured</span> Confirmed: v4 dropped 845 of 1,886 packets in the ASEADOS sample (IPv6 and non-IP) and keeps none of these fields.</td></tr>
+      <tr><td class="cls">Q3 A–D</td><td>Window aggregates, payload byte patterns, first-N sizes, first 32 payload bytes</td><td>Sound choices with cited support. Three of the four are now implemented in <code>pcap_flow_enricher.py</code>.</td></tr>
+      <tr><td class="cls">Q3 B</td><td>Reference [1], Luay et al., IEEE Access 2026</td><td><span class="b l">Literature</span> Exists (UQ listing, DOI 10.1109/access.2026.3688204).</td></tr>
+      <tr><td class="cls">Limits</td><td>Payload features need unencrypted traffic; all but window aggregates need PCAPs</td><td>Correct.</td></tr>
+      <tr><td class="cls">Framing</td><td>"A controlled, lightweight tabular benchmark … rather than a claim of introducing feature fusion"</td><td>Correct and defensible framing.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>What must change</h3>
+  <div class="tablebox"><table>
+    <thead><tr><th>Issue in the document</th><th>Why it matters now</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">Datasets</td><td>TRUSTLab and CSE-CIC-IDS2018 are not used. The new idea uses the raw PCAPs of ASEADOS, CyberFlow and TII, not any published CSV.</td><td>Rewrite Q1–Q3 for the three raw datasets and remove TRUSTLab and CSE-CIC-IDS2018 from the feature reasoning.</td></tr>
+      <tr><td class="cls">66 features</td><td>The 12 removed columns were removed because of TRUSTLab. In the v4 CSVs generated from the three raw datasets they exist and are populated (e.g. Fwd Packets/s non-zero in 20/20, 1,164/1,624 and 22,179/22,179 sample flows; Active/Idle non-zero in all three).</td><td>Restore them: the baseline becomes the 76 v4 statistical features.</td></tr>
+      <tr><td class="cls">Payload byte-pattern justification</td><td>It rests on TRUSTLab's BufferOverflow vs Exploitation confusion (22–24%). Neither class exists in the current datasets.</td><td>Re-justify with SQL_Injection and MQTT_Injection (CyberFlow) and HTTP/FTP/Telnet brute force (TII).</td></tr>
+      <tr><td class="cls">Window aggregates "TRUSTLab anonymized IPs"</td><td>All three current datasets keep IPs and timestamps.</td><td>State that the main test now runs on all three datasets.</td></tr>
+      <tr><td class="cls">"Present in CSE-CIC-IDS2018 and TII-SSRC-23 but not in TRUSTLab"</td><td>The comparison is between datasets that are no longer used as input. (CSE-CIC-IDS2018 was also extracted with CICFlowMeter-V3, not v4, as stated in Sarhan et al.)</td><td>Delete this justification; with one extractor (v4) for all three raw datasets, every dataset has the same 84 columns.</td></tr>
+      <tr><td class="cls">Dst Port</td><td>Kept in the 66 although the manuscript says ports were excluded; it ranks high in SHAP.</td><td>Resolve by ablation: report with and without Dst Port.</td></tr>
+      <tr><td class="cls">Novelty statement</td><td>A panel may ask whether packet header fields (TTL, DNS, ICMP) were used before. They were, in other feature sets (Sarhan et al., arXiv 2101.11315).</td><td>Cite it only as related work showing these fields are informative, and state the difference: this study computes them from the raw PCAP and attaches them to CICFlowMeter v4 rows. No NetFlow data or tool is used.</td></tr>
+      <tr><td class="cls">Missing safeguards</td><td>No mention of capture-grouped splitting, TTL artifacts, file-level labels or repeated runs.</td><td>Add the risk table above to the methodology.</td></tr>
+      <tr><td class="cls">Unconfirmed items</td><td>The 5 unused features, the frozen <code>features.pkl</code>, the TRUSTLab header, and reported numbers in refs [1], [2], [4], [6], [8] (e.g. "27% higher macro-F1", "98.11% F1", "97% at 32 bytes").</td><td>Check each number against the paper before citing; the authors exist, the figures were not verified here.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="answer prose">
+    <h2>Final conclusion to use</h2>
+    <p><strong>Use the CICFlowMeter v4 baseline plus a small set of PCAP-derived feature groups, each tied to an attack class that v4 cannot describe, and keep a group only if the capture-grouped ablation shows a real gain.</strong></p>
+    <ul>
+      <li><strong>Input data:</strong> the raw PCAP/PCAPng of ASEADOS-SDN-IoT, CyberFlowIoT-GICAP and TII-SSRC-23, converted with CICFlowMeter v4. No published CSV and no Thesis 1 dataset is used.</li>
+      <li><strong>Baseline:</strong> the 76 v4 statistical features, identical across the three datasets because all go through the same extractor.</li>
+      <li><strong>Added:</strong> the PCAP-derived columns from <code>pcap_flow_enricher.py</code>, computed from the packets of the same raw files and attached to each v4 flow row.</li>
+      <li><strong>Priority groups:</strong> (1) window aggregates for scans, floods, brute force and beaconing, now possible on all three datasets; (2) ARP features for CyberFlow's ARP spoofing, which v4 cannot see at all; (3) DNS features for DNS beaconing and DNS brute force; (4) TCP window and first-10 packet sizes for slow DoS vs HULK; (5) payload statistics for SQL/MQTT injection, plaintext only.</li>
+      <li><strong>Test only, not assumed:</strong> TTL (possible artifact), ECN, ICMP and retransmission counts.</li>
+    </ul>
+    <p><strong>Why this gives better anomaly detection:</strong> CICFlowMeter v4 describes each flow in isolation and only by size, timing and flag summaries. Attacks that live in what it throws away (ARP, DNS content, payload, packet order, behaviour across flows) are where detectors fail, and those are exactly the gaps these groups fill. The measured gaps (dropped ARP and IPv6, 1,000 ports per source in the Nmap sample) show the information is missing; the literature (Sarhan et al., Kitsune, Luay et al., payload studies) shows such fields carry attack signal; and the capture-grouped ablation with repeated runs makes sure any improvement is real rather than leakage. If a group does not help on a dataset, that is reported as a finding, which strengthens the thesis instead of weakening it.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What your reference papers say</h2>
+  <p class="prose">All ten PDFs in <code>04_reference/papers</code> were read. The table keeps only what bears on feature selection. Each "Evidence" cell paraphrases or quotes the paper itself (<span class="b m">Verified</span> = read in the PDF).</p>
+  <div class="tablebox"><table>
+    <thead><tr><th>Paper</th><th>Evidence (verified in the PDF)</th><th>What it means for our feature plan</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">Yasarathna &amp; Le-Khac 2026<br>ASEADOS-SDN-IoT</td><td><span class="b m">Verified</span> 457,044 flows, 83 features; 63 kept after removing identifiers, near-zero-variance and multicollinear features; 5 classes (Benign, DoS, DDoS, Botnet, Probe); random 80/20 stratified split.</td><td>Supports a variance + correlation filter. Their random split is the weakness we fix with capture-grouped splitting.</td></tr>
+      <tr><td class="cls">Martínez et al. 2026<br>CyberFlowIoT-GICAP</td><td><span class="b m">Verified</span> TShark PCAPNG capture; flows by NFStream (60 s active, 15 s idle timeout); attack flows labelled from ground-truth markers plus the fixed attacker IP; raw captures released so users can "revise the released labels" and "derive alternative feature sets".</td><td>The authors invite exactly our approach: new features from the raw PCAP. Their marker windows + attacker IP are the labelling rule we reuse after regenerating flows with v4.</td></tr>
+      <tr><td class="cls">Herzalla et al. 2023<br>TII-SSRC-23</td><td><span class="b m">Verified</span> 32 subtypes (6 benign, 26 malicious); CICFlowMeter features; malicious PCAPs manually filtered to remove background traffic; Permutation Feature Importance over several runs and classifiers. Top 5 (multiclass): FWD Init Win, FWD Max Pkt Len, FWD Header Len, Std Idle, Max Pkt Len.</td><td>TCP window and packet size already dominate in v4, which supports adding the fuller TCP window and first-N size columns from the PCAP. TII labels per file are clean. PFI with repeats is our ranking method.</td></tr>
+      <tr><td class="cls">Cerasuolo et al. 2026<br>Cross-network NIDS</td><td><span class="b m">Verified</span> Uses per-packet features of the first 10 packets: packet size, inter-arrival time, TCP window, TCP flags, TTL, direction; IPs and ports excluded; first 10 packets nearly match the full flow; inter-arrival time and window "may encode dataset-specific artifacts"; MITM and injection transfer poorly between datasets.</td><td>Direct support for <code>pcap_first10_size_*</code>, <code>pcap_win_*</code> and <code>pcap_ttl_*</code>, and a warning to test window/TTL for artifacts.</td></tr>
+      <tr><td class="cls">Rodríguez et al. 2026<br>Label harmonization</td><td><span class="b m">Verified</span> Cross-dataset failure comes mainly from inconsistent labels; labels should follow observed behaviour (Zeek rules mapped to MITRE ATT&amp;CK / CAPEC), not scenario names.</td><td>Basis for the relabelling step and for mapping all three datasets to one class list.</td></tr>
+      <tr><td class="cls">Bilal et al. 2025<br>Federated IDS (uses TII-SSRC-23)</td><td><span class="b m">Verified</span> Labels harmonized to family level, features aligned to the intersection set; up to 30 percentage-point macro-F1 loss on unseen datasets.</td><td>Same extractor (v4) gives an identical feature set across datasets; family-level labels for any cross-dataset test.</td></tr>
+      <tr><td class="cls">Wang et al. 2024<br>Learn-IDS</td><td><span class="b m">Verified</span> Processes raw PCAPs of several datasets; ~90% labelling accuracy; adding temporal information raised accuracy by 4.1%; mixed-dataset training improved out-of-distribution accuracy by ~30%.</td><td>Supports going back to raw PCAP and adding time-related information (our window columns).</td></tr>
+      <tr><td class="cls">Nouman et al. 2026<br>TLS-aware anomaly detection</td><td><span class="b m">Verified</span> ANOVA + Mutual Information feature selection improved cross-dataset detection in an ablation; TLS fields (JA3/JA3S) from Zeek.</td><td>Second ranking method (ANOVA–MI). TLS fields are skipped: they need Zeek and little TLS exists in these IoT captures.</td></tr>
+      <tr><td class="cls">Awad et al. 2022<br>Feature suitability</td><td><span class="b m">Verified</span> Keep features with importance ≥ the mean, then drop one of each pair with correlation &gt; 0.9; 13–17 features matched the F1 of all 43.</td><td>Cited only for the selection rule (mean-importance threshold + correlation filter), not for its features.</td></tr>
+      <tr><td class="cls">Thesis 2 – RESEARCH.pdf</td><td>Group draft: window aggregates, payload byte patterns, first-N sizes, first 32 payload bytes.</td><td>Reviewed above; three of its four features are implemented.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Plan for selecting the necessary features</h2>
+  <p class="prose">A feature is "necessary" only if it passes every stage below. Stages 2–4 run <strong>inside the training folds only</strong>, so the selection itself never sees test data.</p>
+  <ol class="steps">
+    <li><strong>Candidate pool.</strong> 76 v4 statistical features + 45 PCAP-derived columns (8 groups). Every candidate has a reason in the class tables above.</li>
+    <li><strong>Quality filter.</strong> Drop identifiers (Flow ID, IPs, Src Port, Timestamp), columns with near-zero variance, and one of each pair with correlation &gt; 0.9 (keep the one with higher importance). <em>Basis: Yasarathna &amp; Le-Khac 2026; Awad et al. 2022.</em></li>
+    <li><strong>Artifact screen.</strong> For TTL, TCP window, inter-arrival time and Dst Port, check per class whether one value identifies a class by itself. If so, mark the column "artifact risk" and evaluate with and without it. <em>Basis: Cerasuolo et al. 2026; Sarhan et al. (arXiv 2108.12732).</em></li>
+    <li><strong>Relevance ranking.</strong> Permutation Feature Importance, repeated (e.g. 10 runs) with two models (XGBoost, Random Forest), plus Mutual Information as a model-free check. Keep columns whose mean importance is ≥ the mean of all columns in at least one dataset. <em>Basis: Herzalla et al. 2023 (PFI); Nouman et al. 2026 (MI); Awad et al. 2022 (mean threshold).</em></li>
+    <li><strong>Group ablation.</strong> Baseline 76 → + each PCAP group → + all surviving groups, with capture-grouped folds and fixed hyperparameters. A group stays only if macro-F1 or its target class F1 rises by more than the fold-to-fold spread. <em>Basis: risk table above; Arp et al. 2022.</em></li>
+    <li><strong>Cross-dataset check.</strong> Train on two datasets, test on the third, with family-level labels (benign, DoS/DDoS, scan/probe, brute force, botnet, MITM/ARP, injection). A group that helps in-dataset but hurts transfer is reported, not silently kept. <em>Basis: Bilal et al. 2025; Cerasuolo et al. 2026; Rodríguez et al. 2026.</em></li>
+    <li><strong>Final set and explanation.</strong> Final features = baseline columns that passed stages 2–4 + PCAP groups that passed stage 5. Explain the final model with SHAP and list, per class, which PCAP columns it relies on.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Research features needed: verification matrix</h2>
+  <p class="prose">Decision per PCAP-derived group before running the plan. <strong>Core</strong> = include and test first; <strong>Test</strong> = include, but expect to drop if the ablation shows no gain; <strong>Not used</strong> = excluded, with reason.</p>
+  <div class="tablebox"><table>
+    <thead><tr><th>Group (columns)</th><th>Decision</th><th>Target classes</th><th>Support in your papers</th><th>Other support</th><th>Measured on samples</th></tr></thead>
+    <tbody>
+      <tr><td class="cls">Window counts (<code>win*</code>)†</td><td>Core</td><td>Nmap, info gathering, probe, floods, brute force, bot</td><td>Learn-IDS (temporal info +4.1%); RESEARCH.pdf (main test)</td><td>Luay et al.; Kitsune; KDD Cup 99</td><td><span class="b m">Measured</span> Nmap: up to 1,000 ports / source / 60 s</td></tr>
+      <tr><td class="cls">First-10 packet sizes (<code>pcap_first10_size_*</code>)</td><td>Core</td><td>Slow DoS vs HULK, brute force</td><td>Cerasuolo et al. (first 10 packets ≈ full flow)</td><td>Lipcsey-Magyar et al.; Alitbi et al.</td><td><span class="b m">Measured</span> populated for 100% of TII and CyberFlow flows</td></tr>
+      <tr><td class="cls">TCP window &amp; options (<code>pcap_win_*</code>, <code>pcap_mss</code>, <code>pcap_wscale</code>)</td><td>Core (artifact screen)</td><td>Slow DoS, Nmap, Mirai</td><td>Herzalla et al. (Init Win in top 5); Cerasuolo et al. (WIN per packet; may be dataset-specific)</td><td>—</td><td><span class="b m">Measured</span> Nmap: MSS 1460, window 512</td></tr>
+      <tr><td class="cls">ARP (<code>arp_*</code>)</td><td>Core (CyberFlow)</td><td>ARP_SPOOFING_MITM, TII mac DoS</td><td>Cerasuolo et al. (MITM transfers poorly; needs specific features)</td><td>ARP-PROBE; Rahman et al.</td><td><span class="b m">Measured</span> v4 drops ARP; 54 ARP packets in Nmap sample</td></tr>
+      <tr><td class="cls">DNS (<code>dns_*</code>)</td><td>Core</td><td>DNS_Beacon, TII DNS brute force</td><td>—</td><td>Sarhan et al. (DNS fields informative)</td><td><span class="b m">Measured</span> TII DNS brute force: name entropy median 3.85</td></tr>
+      <tr><td class="cls">Payload statistics (<code>payload_*</code>)</td><td>Test (plaintext only)</td><td>SQL / MQTT injection, HTTP floods, brute force</td><td>Nouman et al. (payload hidden when encrypted); RESEARCH.pdf</td><td>Kiflay et al.; Kenyon et al.</td><td><span class="b m">Measured</span> Nmap payload entropy median 7.50 (near random)</td></tr>
+      <tr><td class="cls">TTL (<code>pcap_ttl_*</code>)</td><td>Test (with and without)</td><td>Probe, Mirai, spoofing</td><td>Cerasuolo et al. (TTL in their reduced feature set)</td><td>Sarhan et al. (TTL can be an artifact)</td><td><span class="b m">Measured</span> constant 64 in TII DNS sample</td></tr>
+      <tr><td class="cls">IP flags &amp; ECN (<code>pcap_df_ratio</code>, <code>pcap_frag_count</code>, <code>pcap_ecn_ce_count</code>, <code>pcap_ip_options_count</code>)</td><td>Test</td><td>TII ECN DoS, fragmentation, crafted packets</td><td>—</td><td>—</td><td><span class="b h">Hypothesis</span></td></tr>
+      <tr><td class="cls">ICMP &amp; retransmissions (<code>pcap_icmp_*</code>, <code>pcap_retrans_count</code>)</td><td>Test</td><td>ICMP flood, scans, flood-induced loss</td><td>—</td><td>Sarhan et al.</td><td><span class="b m">Measured</span> retransmissions 0 in all three samples</td></tr>
+      <tr><td class="cls">TLS / JA3</td><td>Not used</td><td>—</td><td>Nouman et al. (needs TLS traffic and Zeek)</td><td>—</td><td>Little TLS in these IoT captures; outside the PCAP-only, single-tool pipeline</td></tr>
+      <tr><td class="cls">First 32 payload bytes</td><td>Not used yet</td><td>Exploits in content</td><td>RESEARCH.pdf</td><td>Kiflay et al.</td><td>Add only if the payload group shows a gain (adds 32 columns)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>How to test whether the features really help</h2>
+  <ol class="steps">
+    <li><strong>One extractor.</strong> Generate a CICFlowMeter v4 CSV for every raw PCAP in <code>01_raw_datasets</code> (CyberFlow: the <code>.pcap</code> copies in <code>02_Pcap</code>; TII: extract each zip first). The published CSVs are not used.</li>
+    <li><strong>Enrich.</strong> Run <code>pcap_flow_enricher.py</code> on each PCAP + CSV pair. Accept a file only if packets per flow match CICFlowMeter's own count (samples: TII 100%, CyberFlow 99.9%).</li>
+    <li><strong>Label and clean.</strong> Label each flow from its capture's folder (ASEADOS: bot, ddos, dos/hulk|slow|torsh, prob, benign; TII: the attack subtype in the file name; CyberFlow: the attack type and time window in <code>Pcap_Attack_Map.csv</code>), then refine by attacker IP and time window. Drop identifiers after computing window features.</li>
+    <li><strong>Split by capture file</strong> (grouped cross-validation), or by time where a class has one capture; the same folds for every run.</li>
+    <li><strong>Baseline:</strong> XGBoost on the 76 v4 statistical features, fixed hyperparameters. (The Thesis 1 set of 66 removed 12 columns only because of TRUSTLab, which is not used.)</li>
+    <li><strong>Ablation:</strong> baseline + all 45 columns; then baseline + each group alone (IP header, TCP, ICMP, DNS, payload, packet order, ARP, window); then all without TTL.</li>
+    <li><strong>Repeat</strong> each run with 5 seeds or 5 capture-based folds, and report mean ± standard deviation.</li>
+    <li><strong>Judge "it helps"</strong> only when macro-F1 or a target class's F1 rises by more than the spread across seeds, and SHAP shows the new columns among the ones the model actually uses.</li>
+    <li><strong>Report per dataset and per class</strong>, including the classes where nothing changed. A null result on TII's flag DoS is an expected and useful finding.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>How this connects to Thesis 2 – RESEARCH.pdf</h2>
+  <div class="tablebox"><table>
+    <thead><tr><th>Feature in the research document</th><th>Status</th><th>Column(s)</th></tr></thead>
+    <tbody>
+      <tr><td>Window aggregates (main test)</td><td>Implemented</td><td><code>win2s_src_flows</code>†, <code>win60s_src_flows</code>†, <code>win60s_src_dstports</code>†</td></tr>
+      <tr><td>Payload byte-pattern statistics</td><td>Implemented</td><td><code>payload_longest_run</code>, <code>payload_nop_count</code>, <code>payload_printable_ratio</code></td></tr>
+      <tr><td>First-N packet sizes</td><td>Implemented (N = 10, signed by direction)</td><td><code>pcap_first10_size_1…10</code></td></tr>
+      <tr><td>First 32 payload bytes</td><td>Not yet; add if the payload group shows a gain</td><td>—</td></tr>
+      <tr><td>Other candidates: payload entropy, ARP counts, TTL, TLS/JA3</td><td>Entropy, ARP, TTL implemented; TLS/JA3 skipped (little TLS in these IoT captures)</td><td><code>payload_entropy</code>, <code>arp_*</code>, <code>pcap_ttl_*</code></td></tr>
+      <tr><td>New from this research</td><td>Implemented</td><td><code>dns_*</code>, <code>pcap_icmp_*</code>, <code>pcap_retrans_count</code>, <code>pcap_win_*</code>, <code>pcap_mss</code>, <code>pcap_ecn_ce_count</code></td></tr>
+    </tbody>
+  </table></div>
+  <p class="prose" style="margin-top:12px"><strong>Source rule:</strong> all new columns come from the raw PCAP/PCAPng only. Studies such as Sarhan et al. are cited as <em>evidence</em> that header fields like TTL, DNS and ICMP carry attack information, not as a data source or tool. In the related-work section, one sentence is enough: prior work has shown these packet header fields are informative, but did not add them to standard CICFlowMeter v4 output; this study does, directly from the PCAP.</p>
+</section>
+
+<section>
+  <h2>Sources</h2>
+  <div class="refs">
+    <div><strong>Reference papers in 04_reference/papers (read in full):</strong></div>
+    <div><span class="b m">Verified</span> Yasarathna, T.L. &amp; Le-Khac, N.-A. (2026). ASEADOS-SDN-IoT: A novel SDN-IoT network intrusion detection dataset and framework. <em>Internet of Things</em>, 36, 101891.</div>
+    <div><span class="b m">Verified</span> Martínez, B., Cambra, C., Urda, D., Rincón, J. &amp; Herrero, Á. (2026). Labelled IoT flow-based network traffic dataset for cyberattack detection. <em>Data in Brief</em>, 66, 112717.</div>
+    <div><span class="b m">Verified</span> Herzalla, D. et al. (2023). TII-SSRC-23 Dataset: Typological Exploration of Diverse Traffic Patterns for Intrusion Detection. <em>IEEE Access</em>, 11.</div>
+    <div><span class="b m">Verified</span> Cerasuolo, F., Bovenzi, G. &amp; Pescapè, A. (2026). Cross-network transferability of AI-based network intrusion detection systems in heterogeneous IoT environments. <em>Computer Networks</em>, 286, 112434.</div>
+    <div><span class="b m">Verified</span> Rodríguez, M., Mehavilla, L., Alesanco, Á. &amp; García Aragón, J. (2026). A rule-based label harmonization framework for cross-dataset IoT intrusion detection. <em>Internet of Things</em>.</div>
+    <div><span class="b m">Verified</span> Bilal, M.A. et al. (2025). Dataset-centric evaluation of federated intrusion detection models in IoT networks. <em>Scientific Reports</em>.</div>
+    <div><span class="b m">Verified</span> Wang, M., Yang, N., Guo, Y. &amp; Weng, N. (2024). Learn-IDS: Bridging Gaps between Datasets and Learning-Based Network Intrusion Detection. <em>Electronics</em>, 13, 1072.</div>
+    <div><span class="b m">Verified</span> Nouman, M., Ujjan, R. &amp; Hassanu, M. (2026). TLS-Aware Anomaly Detection for Encrypted IoT Traffic Using a β-Variational Autoencoder with ANOVA–Mutual Information Feature Selection. <em>Future Internet</em>, 18, 310.</div>
+    <div><span class="b m">Verified</span> Awad, M., Fraihat, S., Salameh, K. &amp; Al Redhaei, A. (2022). Examining the Suitability of NetFlow Features in Detecting IoT Network Intrusions. <em>Sensors</em>, 22, 6164 (cited for the selection rule only).</div>
+    <div style="margin-top:8px"><strong>External sources:</strong></div>
+    <div><span class="b m">Verified</span> Sarhan, Layeghy &amp; Portmann. Towards a Standard Feature Set for Network Intrusion Detection System Datasets. <a href="https://arxiv.org/pdf/2101.11315">arXiv 2101.11315</a> (feature table read: MIN/MAX_TTL, DNS_QUERY_TYPE, ICMP_TYPE, RETRANSMITTED_*, NUM_PKTS_* histogram).</div>
+    <div>Sarhan et al. Feature Analysis for ML-based IoT Intrusion Detection (TTL features as a possible artifact). <a href="https://arxiv.org/pdf/2108.12732">arXiv 2108.12732</a></div>
+    <div>Mirsky et al. Kitsune: An Ensemble of Autoencoders for Online Network Intrusion Detection, NDSS 2018. <a href="https://arxiv.org/pdf/1802.09089">arXiv 1802.09089</a></div>
+    <div>Luay et al. Time Matters: Temporal NetFlow Features for ML-Based Network Intrusion Detection, IEEE Access 2026. Preprint: <a href="https://arxiv.org/pdf/2503.04404">arXiv 2503.04404</a></div>
+    <div>Engelen, Rimmer &amp; Joosen. Troubleshooting an Intrusion Detection Dataset: the CICIDS2017 Case Study, IEEE SPW 2021. <a href="https://lirias.kuleuven.be/retrieve/713070">PDF</a></div>
+    <div>Kenyon, Deka &amp; Elizondo. Characterising Payload Entropy in Packet Flows, 2024. <a href="https://export.arxiv.org/abs/2404.19121">arXiv 2404.19121</a></div>
+    <div>ARP-PROBE: an ARP spoofing detector for IoT networks. <a href="https://research.uaeu.ac.ae/en/publications/arp-probe-an-arp-spoofing-detector-for-internet-of-things-network/">UAEU record</a> · Rahman et al. Feature Relevance for Detecting ARP Spoofing in Smart Homes. <a href="https://researchprofiles.canberra.edu.au/en/publications/feature-relevance-for-detecting-address-resolution-protocol-spoof/">Canberra record</a></div>
+    <div>Arp et al. Dos and Don'ts of Machine Learning in Computer Security, USENIX Security 2022 (check details before citing).</div>
+    <div>Kiflay et al. 2024; Lipcsey-Magyar et al. 2026; Alitbi et al. 2025; KDD Cup 99 task description: references [6], [4], [5], [9] in Thesis 2 – RESEARCH.pdf.</div>
+  </div>
+</section>
+
+<footer>Measured values come from one sample PCAP per dataset (dos-rbp1-hulk.pcap, 28.NMAP_RECATK…pcap, bruteforce_dns.pcap). Each sample holds a single class, so the samples show the features are extracted correctly, not that they separate classes. That needs the full-dataset ablation above.</footer>
+
+</div>
+
+</body>
+</html>

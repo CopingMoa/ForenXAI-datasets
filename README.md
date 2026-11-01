@@ -20,9 +20,11 @@ DATASETS/
 │  ├─ v3/<dataset>/generated_csv/*.pcap_ISCX.csv
 │  └─ v4/<dataset>/generated_csv/*.pcap_Flow.csv
 ├─ 03_scripts/
-│  └─ dataset_feature_inventory.py   lists CSV columns and PCAP/PCAPng header fields per dataset
+│  ├─ dataset_feature_inventory.py   lists CSV columns and PCAP/PCAPng header fields per dataset
+│  └─ pcap_flow_enricher.py          attaches PCAP-derived columns to a CICFlowMeter v4 CSV
 ├─ 04_reference/
 │  ├─ CICFlowMeter_Feature_Tables.xlsx   feature categories, all features, v3 vs v4 comparison, verdict
+│  ├─ PCAP_Feature_Guide.html            research guide: which PCAP features to add, evidence, selection plan
 │  └─ papers/                            (local only, git-ignored)
 ├─ 05_tools/                  CICFlowMeter v3 / v4 (local), launchers tracked – see 05_tools/README.md
 └─ 06_machine_learning/       (reserved for model training)
@@ -66,11 +68,46 @@ Test PCAPs: `dos-rbp1-hulk.pcap` (ASEADOS) and `bruteforce_dns.pcap` (TII).
 Both versions output the same 84 columns in the same order (76 statistical features); 48 names differ.
 Full tables: `04_reference/CICFlowMeter_Feature_Tables.xlsx`.
 
+## PCAP feature enrichment
+
+Study design: raw PCAP/PCAPng of the three datasets → CICFlowMeter v4 CSV → extra columns computed
+directly from the packets with Scapy (`03_scripts/pcap_flow_enricher.py`). No NetFlow/NFStream tool
+and no published CSV is used as input.
+
+- Packets are matched to v4 flows by protocol + both endpoints and the flow's time span; the clock
+  offset between PCAP and CSV is detected automatically; a flow never receives more packets than
+  CICFlowMeter counted for it.
+- 45 columns are inserted before `Label` (84 → 129 columns); the original 84 values are unchanged.
+
+| Group | Columns |
+|---|---|
+| IP header | `pcap_ttl_min/max/mean/distinct`, `pcap_ecn_ce_count`, `pcap_df_ratio`, `pcap_frag_count`, `pcap_ip_options_count` |
+| TCP | `pcap_win_min/max/mean`, `pcap_zero_win_count`, `pcap_mss`, `pcap_wscale`, `pcap_retrans_count`, `pcap_urgptr_nonzero` |
+| ICMP | `pcap_icmp_echo_req`, `pcap_icmp_echo_rep`, `pcap_icmp_unreach` |
+| DNS | `dns_query_count`, `dns_resp_count`, `dns_nxdomain_count`, `dns_qname_len_mean`, `dns_qname_entropy_mean` |
+| Payload | `payload_entropy`, `payload_printable_ratio`, `payload_nop_count`, `payload_longest_run` |
+| Packet order | `pcap_first10_size_1…10` (+ forward / − backward) |
+| ARP | `arp_reply_count`, `arp_gratuitous_count`, `arp_mac_distinct` |
+| Time window | `win2s_src_flows`, `win60s_src_flows`, `win60s_src_dstports` (from the v4 CSV) |
+| Check | `pcap_matched_pkts` |
+
+Validation on the samples (`02_cicflowmeter_samples/v4/<dataset>/enriched_csv/`):
+
+| Dataset | Rows kept | Original 84 values unchanged | Packets per flow = CICFlowMeter count |
+|---|---|---|---|
+| ASEADOS-SDN-IoT | 20/20 | 20/20 | 18/20 (2 empty flows created by CICFlowMeter) |
+| CyberFlowIoT-GICAP | 1,624/1,624 | 1,624/1,624 | 1,623/1,624 |
+| TII-SSRC-23 | 22,179/22,179 | 22,179/22,179 | 22,179/22,179 |
+
+Feature selection plan, evidence from the reference papers and risks: `04_reference/PCAP_Feature_Guide.html`.
+
 ## Usage
 
 ```bash
 pip install scapy pyarrow
 python 03_scripts/dataset_feature_inventory.py --packets 3000 > inventory.txt
+python 03_scripts/pcap_flow_enricher.py --selftest
+python 03_scripts/pcap_flow_enricher.py capture.pcap capture.pcap_Flow.csv capture_Flow_enriched.csv
 ```
 
 CICFlowMeter build and run instructions: [`05_tools/README.md`](05_tools/README.md).
