@@ -1,0 +1,26 @@
+# Raw third-party datasets (~94 GB, not redistributable here)
+01_raw_datasets/
+
+# Packet captures and archives anywhere
+*.pcap
+*.pcapng
+*.zip
+*.7z
+*.msi
+*.parquet
+
+# Copyrighted papers
+04_reference/papers/
+
+# Third-party CICFlowMeter source/builds: keep only our launchers and notes
+05_tools/**
+!05_tools/**/
+!05_tools/README.md
+!05_tools/cicflowmeter_v*/run_CICFlowMeter_v*.bat
+
+# Python / OS / Office junk
+__pycache__/
+*.pyc
+~$*
+Thumbs.db
+desktop.ini
